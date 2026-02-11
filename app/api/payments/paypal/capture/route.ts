@@ -2,8 +2,29 @@ import { NextResponse } from "next/server";
 import { capturePayPalOrder } from "@/lib/paypal";
 import { prisma } from "@/lib/prisma";
 
-function getCaptureId(payload: any) {
-  return payload?.purchase_units?.[0]?.payments?.captures?.[0]?.id ?? null;
+type PayPalCapturePayload = {
+  purchase_units?: Array<{ payments?: { captures?: Array<{ id?: string }> } }>;
+};
+
+type PurchaseWithCourse = {
+  id: string;
+  userId: string;
+  courseId: string;
+  status: string;
+  amountCents: number;
+  currency: string;
+  createdAt: Date;
+  Course: {
+    title: string;
+    slug: string;
+    description: string | null;
+    inventory: number | null;
+  };
+};
+
+function getCaptureId(payload: unknown) {
+  const data = payload as PayPalCapturePayload | null;
+  return data?.purchase_units?.[0]?.payments?.captures?.[0]?.id ?? null;
 }
 
 function getBaseUrl(requestUrl: URL): string {
@@ -48,13 +69,12 @@ export async function GET(request: Request) {
   // Handle multiple purchases (learning path enrollment)
   if (purchaseIdsParam) {
     const purchaseIds = purchaseIdsParam.split(",");
-    const purchases = await prisma.purchase.findMany({
+    const purchases = (await prisma.purchase.findMany({
       where: {
         id: { in: purchaseIds },
         providerRef: orderId,
       },
-      include: { Course: true },
-    });
+      include: { Course: true },    })) as PurchaseWithCourse[];
 
     if (purchases.length === 0) {
       return NextResponse.redirect(new URL("/courses", baseUrl));
@@ -88,7 +108,7 @@ export async function GET(request: Request) {
 
     // Process all purchases
     await Promise.all(
-      purchases.map(async (purchase: any) => {
+      purchases.map(async (purchase) => {
         if (purchase.status !== "paid") {
           await prisma.purchase.update({
             where: { id: purchase.id },
@@ -107,7 +127,7 @@ export async function GET(request: Request) {
             });
           }
 
-          await prisma.enrollment.upsert({
+    await prisma.enrollment.upsert({
             where: {
               userId_courseId: {
                 userId: purchase.userId,
@@ -175,20 +195,20 @@ export async function GET(request: Request) {
     if (user) {
       try {
         const { sendPurchaseConfirmationEmail, sendEnrollmentEmail, sendInvoiceEmail } = await import("@/lib/email");
-        const courseTitles = purchases.map((p: any) => p.Course.title).join(", ");
-        const totalAmount = purchases.reduce((sum: number, p: any) => sum + p.amountCents, 0);
+        const courseTitles = purchases.map((p) => p.Course.title).join(", ");
+        const totalAmount = purchases.reduce((sum: number, p) => sum + p.amountCents, 0);
         const invoiceNumber = generateInvoiceNumber(purchases[0].id);
         const purchaseDate = payment?.createdAt || purchases[0].createdAt;
         
         await Promise.all([
           sendPurchaseConfirmationEmail(user.email, courseTitles, totalAmount),
-          ...purchases.map((p: any) => sendEnrollmentEmail(user.email, p.Course.title)),
+          ...purchases.map((p) => sendEnrollmentEmail(user.email, p.Course.title)),
           sendInvoiceEmail(
             user.email,
             user.name || "Customer",
             invoiceNumber,
             purchaseDate,
-            purchases.map((p: any) => ({
+            purchases.map((p) => ({
               title: p.Course.title,
               description: p.Course.description || undefined,
               amountCents: p.amountCents,
@@ -263,9 +283,7 @@ export async function GET(request: Request) {
           },
         },
       });
-    }
-
-    const enrollment = await prisma.enrollment.upsert({
+    }    await prisma.enrollment.upsert({
       where: {
         userId_courseId: {
           userId: purchase.userId,

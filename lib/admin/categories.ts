@@ -182,7 +182,7 @@ export async function deleteCategory(id: string) {
 
   if (courseCount > 0) {
     // Soft delete: set isActive to false
-    const category = await withRetry(async () => {
+    await withRetry(async () => {
       return prisma.category.update({
         where: { id },
         data: { isActive: false },

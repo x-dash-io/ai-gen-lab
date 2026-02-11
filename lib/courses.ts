@@ -1,5 +1,4 @@
 import { prisma, withRetry } from "@/lib/prisma";
-import { getCached, cacheKeys } from "@/lib/cache";
 
 export async function getPublishedCourses() {
   return withRetry(async () => {

@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let lessons;
+    type DebugLesson = { id: string; title: string; contents: Array<{ id: string; contentType: string; contentUrl: string | null; title: string | null; sortOrder: number }>; };
+
+    let lessons: DebugLesson[];
 
     if (lessonId) {
       console.log(`[DEBUG CONTENT] Checking content for lesson ${lessonId}`);
@@ -51,13 +53,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      lessons = [lesson];
+      lessons = [lesson as DebugLesson];
     } else {
       console.log(`[DEBUG CONTENT] Checking content for all lessons in course ${courseId}`);
-      lessons = await prisma.lesson.findMany({
+      lessons = (await prisma.lesson.findMany({
         where: { Section: { courseId } },
         include: { contents: true },
-      });
+      })) as DebugLesson[];
 
       if (lessons.length === 0) {
         return NextResponse.json(
@@ -68,11 +70,11 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await Promise.all(
-      lessons.map(async (lesson: any) => {
+      lessons.map(async (lesson: DebugLesson) => {
         const contentChecks = await Promise.all(
-          lesson.contents.map(async (content: any) => {
+          lesson.contents.map(async (content: DebugLesson["contents"][number]) => {
             let exists = false;
-            let error = null;
+            let error: string | null = null;
 
             if (content.contentUrl) {
               try {
@@ -109,9 +111,9 @@ export async function POST(request: NextRequest) {
 
     const summary = {
       lessonsChecked: result.length,
-      lessonsWithMissingContent: result.filter((l: any) => !l.allContentExists).length,
-      totalContentItems: result.reduce((sum: number, l: any) => sum + l.contentCount, 0),
-      missingContentItems: result.reduce((sum: number, l: any) => sum + l.missingContent.length, 0),
+      lessonsWithMissingContent: result.filter((l: { allContentExists: boolean }) => !l.allContentExists).length,
+      totalContentItems: result.reduce((sum: number, l: { contentCount: number }) => sum + l.contentCount, 0),
+      missingContentItems: result.reduce((sum: number, l: { missingContent: unknown[] }) => sum + l.missingContent.length, 0),
     };
 
     return NextResponse.json({

@@ -293,7 +293,6 @@ export async function sendInvoiceEmail(
   transactionId?: string
 ) {
   const totalAmount = items.reduce((sum, item) => sum + item.amountCents, 0);
-  const currency = items[0]?.currency || "USD";
   const formattedTotal = (totalAmount / 100).toFixed(2);
   const formattedDate = invoiceDate.toLocaleDateString("en-US", {
     year: "numeric",

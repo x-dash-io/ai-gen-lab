@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { createPayPalOrder } from "@/lib/paypal";
 import { isAdmin } from "@/lib/access";
 import { getCartFromCookies } from "@/lib/cart/utils";
+import { createPayPalOrder } from "@/lib/paypal";
+import { prisma } from "@/lib/prisma";
+
+type CheckoutCourse = {
+  id: string;
+  title: string;
+  priceCents: number;
+  inventory: number | null;
+};
+
+type ExistingPurchase = {
+  courseId: string;
+};
+
+type CheckoutPurchase = {
+  id: string;
+  amountCents: number;
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Block admins from purchasing courses
+    // Block admins from purchasing courses.
     if (isAdmin(session.user.role)) {
       return NextResponse.json(
         { error: "Admins cannot purchase courses" },
@@ -21,33 +37,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { courseIds } = body;
+    const body = (await request.json()) as { courseIds?: unknown };
+    const inputCourseIds = body.courseIds;
 
-    if (!courseIds || !Array.isArray(courseIds) || courseIds.length === 0) {
-      return NextResponse.json({ error: "Course IDs are required" }, { status: 400 });
+    if (!Array.isArray(inputCourseIds) || inputCourseIds.length === 0) {
+      return NextResponse.json(
+        { error: "Course IDs are required" },
+        { status: 400 }
+      );
     }
 
-    // Fetch courses
-    const courses = await prisma.course.findMany({
+    const courseIds = inputCourseIds.filter(
+      (id): id is string => typeof id === "string" && id.length > 0
+    );
+
+    if (courseIds.length !== inputCourseIds.length) {
+      return NextResponse.json(
+        { error: "Course IDs must be non-empty strings" },
+        { status: 400 }
+      );
+    }
+
+    // Fetch courses.
+    const courses = (await prisma.course.findMany({
       where: { id: { in: courseIds } },
-    });
+      select: {
+        id: true,
+        title: true,
+        priceCents: true,
+        inventory: true,
+      },
+    })) as CheckoutCourse[];
 
     if (courses.length !== courseIds.length) {
       return NextResponse.json({ error: "Some courses not found" }, { status: 404 });
     }
 
-    // Check for existing purchases
-    const existingPurchases = await prisma.purchase.findMany({
+    // Check for existing purchases.
+    const existingPurchases = (await prisma.purchase.findMany({
       where: {
         userId: session.user.id,
         courseId: { in: courseIds },
         status: "paid",
       },
-    });
+      select: { courseId: true },
+    })) as ExistingPurchase[];
 
-    const purchasedCourseIds = new Set(existingPurchases.map((p: any) => p.courseId));
-    const coursesToPurchase = courses.filter((c: any) => !purchasedCourseIds.has(c.id));
+    const purchasedCourseIds = new Set(
+      existingPurchases.map((purchase) => purchase.courseId)
+    );
+    const coursesToPurchase = courses.filter(
+      (course) => !purchasedCourseIds.has(course.id)
+    );
 
     if (coursesToPurchase.length === 0) {
       return NextResponse.json(
@@ -56,9 +97,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get Cart for Coupon Info
+    // Get cart for coupon info.
     const cart = await getCartFromCookies();
-    let coupon = null;
+    let coupon:
+      | {
+          id: string;
+          code: string;
+          isActive: boolean;
+          discountType: "FIXED" | "PERCENTAGE";
+          discountAmount: number;
+          maxDiscountAmount: number | null;
+          minOrderAmount: number | null;
+          startDate: Date;
+          endDate: Date | null;
+          maxUses: number | null;
+          usedCount: number;
+        }
+      | null = null;
     let discountTotal = 0;
 
     if (cart.couponCode) {
@@ -67,19 +122,26 @@ export async function POST(request: NextRequest) {
       });
 
       if (coupon && coupon.isActive) {
-        // Validate coupon again just to be safe
         const now = new Date();
-        if ((coupon.startDate <= now) && (!coupon.endDate || coupon.endDate >= now)) {
+        if (coupon.startDate <= now && (!coupon.endDate || coupon.endDate >= now)) {
           if (!coupon.maxUses || coupon.usedCount < coupon.maxUses) {
-            // Calculate discount
-            const totalCents = coursesToPurchase.reduce((sum, c) => sum + c.priceCents, 0);
+            const totalCents = coursesToPurchase.reduce(
+              (sum, course) => sum + course.priceCents,
+              0
+            );
+
             if (!coupon.minOrderAmount || totalCents >= coupon.minOrderAmount) {
               if (coupon.discountType === "FIXED") {
                 discountTotal = Math.min(coupon.discountAmount, totalCents);
               } else {
-                discountTotal = Math.round(totalCents * (coupon.discountAmount / 100));
+                discountTotal = Math.round(
+                  totalCents * (coupon.discountAmount / 100)
+                );
                 if (coupon.maxDiscountAmount) {
-                  discountTotal = Math.min(discountTotal, coupon.maxDiscountAmount);
+                  discountTotal = Math.min(
+                    discountTotal,
+                    coupon.maxDiscountAmount
+                  );
                 }
               }
             }
@@ -88,30 +150,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check inventory availability
+    // Check inventory availability.
     const outOfStockCourses = coursesToPurchase.filter(
-      (course: any) => course.inventory !== null && course.inventory <= 0
+      (course) => course.inventory !== null && course.inventory <= 0
     );
 
     if (outOfStockCourses.length > 0) {
       return NextResponse.json(
         {
-          error: `Some courses are out of stock: ${outOfStockCourses.map((c: any) => c.title).join(", ")}`,
-          outOfStock: outOfStockCourses.map((c: any) => c.id),
+          error: `Some courses are out of stock: ${outOfStockCourses
+            .map((course) => course.title)
+            .join(", ")}`,
+          outOfStock: outOfStockCourses.map((course) => course.id),
         },
         { status: 400 }
       );
     }
 
-    // Calculate pro-rated discount per item
-    // Simplification: We will just deduct detailed amounts if possible, or just store the final amount paid per item
-    // Pro-rating: itemPrice - (itemPrice / totalOriginalPrice * totalDiscount)
-    const totalOriginalPrice = coursesToPurchase.reduce((sum, c) => sum + c.priceCents, 0);
+    // Pro-rate discount across items.
+    const totalOriginalPrice = coursesToPurchase.reduce(
+      (sum, course) => sum + course.priceCents,
+      0
+    );
 
-    // Create purchases
-    const purchases = await Promise.all(
-      coursesToPurchase.map((course: any) => {
-        const purchaseId = `purchase_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const purchases: CheckoutPurchase[] = await Promise.all(
+      coursesToPurchase.map(async (course) => {
+        const purchaseId = `purchase_${Date.now()}_${Math.random()
+          .toString(36)
+          .substring(2, 9)}`;
 
         let amountToPay = course.priceCents;
         let itemDiscount = 0;
@@ -132,7 +198,7 @@ export async function POST(request: NextRequest) {
             status: "pending",
             provider: "paypal",
             amountCents: amountToPay,
-            couponId: coupon?.id, // Link coupon
+            couponId: coupon?.id,
             priceOriginalCents: course.priceCents,
             priceDiscountCents: itemDiscount,
             pricingSnapshot: {
@@ -168,37 +234,36 @@ export async function POST(request: NextRequest) {
               finalPriceCents: amountToPay,
             },
           },
+          select: {
+            id: true,
+            amountCents: true,
+          },
         });
       })
     );
 
-    // Increment coupon usage if used (optimistic usage count, finalized on webhook?)
-    // Actually, we should probably increment usage ONLY when paid. 
-    // But PayPal flow is async. We might link it now.
-    // If we increment now, and they cancel, it's bad.
-    // Better to increment in the webhook when 'paid'.
-    // However, validation 'usedCount' check earlier might fail if many pending. 
-    // For now, let's leave incrementing to the payment success handler (webhook).
+    const totalAmountCents = purchases.reduce(
+      (sum, purchase) => sum + purchase.amountCents,
+      0
+    );
 
-    const totalAmountCents = purchases.reduce((sum: number, p: any) => sum + p.amountCents, 0);
-    // Sanity check against finalTotal
-    // Total might differ slightly due to rounding, but it's what we are charging.
-
-    const purchaseIds = purchases.map((p: any) => p.id).join(",");
+    const purchaseIds = purchases.map((purchase) => purchase.id).join(",");
     const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
     const { orderId, approvalUrl } = await createPayPalOrder({
       amountCents: totalAmountCents,
       currency: "usd",
-      returnUrl: `${appUrl}/api/payments/paypal/capture?purchases=${encodeURIComponent(purchaseIds)}`,
+      returnUrl: `${appUrl}/api/payments/paypal/capture?purchases=${encodeURIComponent(
+        purchaseIds
+      )}`,
       cancelUrl: `${appUrl}/cart?checkout=cancelled`,
       purchaseId: purchases[0].id,
     });
 
-    // Update all purchases with order ID
+    // Update all purchases with order ID.
     await prisma.purchase.updateMany({
       where: {
-        id: { in: purchases.map((p: any) => p.id) },
+        id: { in: purchases.map((purchase) => purchase.id) },
       },
       data: {
         providerRef: orderId,

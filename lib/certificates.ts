@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requireCustomer, hasCourseAccess, hasPurchasedCourse } from "@/lib/access";
 import { hasEnrolledInLearningPath } from "./learning-paths";
 import { getUserSubscription } from "@/lib/subscriptions";
-import { generateCertificatePDFBytes } from "./certificate-pdf";
 import { sendCertificateEmail } from "./email";
 import { logger } from "@/lib/logger";
 

@@ -170,7 +170,7 @@ export async function revisePayPalSubscription({
   }
 
   const data = await response.json();
-  const approvalUrl = data.links?.find((link: any) => link.rel === "approve")?.href;
+  const approvalUrl = data.links?.find((link) => link.rel === "approve")?.href;
 
   return { subscriptionId: data.id, approvalUrl };
 }
@@ -212,7 +212,7 @@ export async function createPayPalSubscription({
   }
 
   const data = await response.json();
-  const approvalUrl = data.links.find((link: any) => link.rel === "approve")?.href;
+  const approvalUrl = data.links.find((link) => link.rel === "approve")?.href;
 
   if (!approvalUrl) {
     throw new Error("Missing PayPal approval URL for subscription.");

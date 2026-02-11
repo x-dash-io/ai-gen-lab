@@ -7,7 +7,7 @@ import { track as vercelTrack } from "@vercel/analytics";
 
 export interface AnalyticsEvent {
   name: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, string | number | boolean | null | undefined>;
   userId?: string;
 }
 
@@ -23,7 +23,7 @@ export function trackEvent(event: AnalyticsEvent): void {
 
   // Track with Vercel Analytics (works in production automatically)
   try {
-    vercelTrack(event.name, event.properties);
+    vercelTrack(event.name, event.properties as Record<string, string | number | boolean | null | undefined> | undefined);
   } catch (error) {
     console.error("[ANALYTICS] Failed to track with Vercel:", error);
   }

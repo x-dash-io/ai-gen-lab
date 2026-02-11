@@ -1,6 +1,23 @@
 import { prisma, withRetry } from "@/lib/prisma";
 import { estimateReadTime } from "../blog";
 
+type BlogPostUpdateData = {
+  title?: string;
+  slug?: string;
+  content?: string;
+  excerpt?: string;
+  featuredImage?: string;
+  status?: "draft" | "published";
+  readTimeMinutes?: number;
+  tags?: {
+    set: [];
+    connectOrCreate: Array<{
+      where: { name: string };
+      create: { name: string; slug: string };
+    }>;
+  };
+};
+
 export async function getAllPosts() {
   return withRetry(async () => {
     return prisma.blogPost.findMany({
@@ -16,7 +33,6 @@ export async function getAllPosts() {
         _count: {
           select: { reviews: true },
         },
-        // Exclude content and excerpt to prevent payload issues
       },
       orderBy: { createdAt: "desc" },
     });
@@ -56,14 +72,19 @@ export async function createPost(data: {
         status: data.status || "draft",
         readTimeMinutes,
         tags: {
-          connectOrCreate: data.tags?.map(tagName => ({
-            where: { name: tagName },
-            create: {
-              name: tagName,
-              slug: tagName.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^\w-]+/g, "")
-            }
-          })) || []
-        }
+          connectOrCreate:
+            data.tags?.map((tagName) => ({
+              where: { name: tagName },
+              create: {
+                name: tagName,
+                slug: tagName
+                  .toLowerCase()
+                  .trim()
+                  .replace(/\s+/g, "-")
+                  .replace(/[^\w-]+/g, ""),
+              },
+            })) || [],
+        },
       },
     });
   });
@@ -82,7 +103,7 @@ export async function updatePost(
   }
 ) {
   const { tags, ...otherData } = data;
-  const updateData: any = { ...otherData };
+  const updateData: BlogPostUpdateData = { ...otherData };
 
   if (data.content) {
     updateData.readTimeMinutes = estimateReadTime(data.content);
@@ -90,21 +111,25 @@ export async function updatePost(
 
   if (tags) {
     updateData.tags = {
-      set: [], // Clear existing tags
-      connectOrCreate: tags.map(tagName => ({
+      set: [],
+      connectOrCreate: tags.map((tagName) => ({
         where: { name: tagName },
         create: {
           name: tagName,
-          slug: tagName.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^\w-]+/g, "")
-        }
-      }))
+          slug: tagName
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, "-")
+            .replace(/[^\w-]+/g, ""),
+        },
+      })),
     };
   }
 
   return withRetry(async () => {
     return prisma.blogPost.update({
       where: { id: postId },
-      data: updateData as any,
+      data: updateData,
     });
   });
 }

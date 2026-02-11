@@ -1,8 +1,27 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyPayPalWebhook, getPayPalSubscription, cancelPayPalSubscription } from "@/lib/paypal";
+
+type WebhookPurchase = {
+  id: string;
+  userId: string;
+  courseId: string;
+  amountCents: number;
+  currency: string;
+  couponId: string | null;
+  Course: {
+    id: string;
+    title: string;
+    inventory: number | null;
+    slug: string;
+  } | null;
+  User: {
+    id: string;
+    email: string;
+    name: string | null;
+  } | null;
+};
 
 type PayPalEvent = {
   id?: string;
@@ -50,15 +69,17 @@ async function tryRegisterWebhookEvent(event: PayPalEvent, eventId: string, tran
         eventId,
         eventType: event.event_type ?? "unknown",
         transmissionId,
-        payload: event as Prisma.InputJsonValue,
+        payload: event as unknown as Record<string, unknown>,
       },
     });
 
     return true;
   } catch (error) {
     if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
     ) {
       return false;
     }
@@ -280,7 +301,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing order id" }, { status: 400 });
     }
 
-    const purchases = await prisma.purchase.findMany({
+    const purchases = (await prisma.purchase.findMany({
       where: { providerRef: orderId },
       include: {
         Course: {
@@ -298,8 +319,7 @@ export async function POST(request: Request) {
             name: true,
           },
         },
-      },
-    });
+      },    })) as WebhookPurchase[];
 
     if (purchases.length === 0) {
       return NextResponse.json({ received: true });

@@ -3,7 +3,7 @@
  * Generates professional-looking invoices matching the web design
  */
 
-import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
 import { uploadToCloudinary } from "./cloudinary";
 
 interface InvoiceData {
@@ -73,7 +73,6 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<string> {
 
   // Colors matching the web design
   const primaryBlue = rgb(0.22, 0.47, 0.91); // Primary color
-  const darkBlue = rgb(0.15, 0.35, 0.75); // Darker shade
   const white = rgb(1, 1, 1);
   const darkGray = rgb(0.2, 0.2, 0.2);
   const mediumGray = rgb(0.4, 0.4, 0.4);

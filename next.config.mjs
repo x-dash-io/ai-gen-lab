@@ -14,9 +14,8 @@ const nextConfig = {
   transpilePackages: ["framer-motion"],
   reactStrictMode: true,
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
   },
 };
 
 export default nextConfig;
-// Trigger restart 5

@@ -4,7 +4,7 @@ import { getCourseForLibraryBySlug } from "@/lib/courses";
 import { hasCourseAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { courseProgressSchema, validateRequestBody } from "@/lib/validation";
-import { getCachedProgress, setCachedProgress, updateCachedLessonProgress } from "@/lib/progress-cache";
+import { getCachedProgress, setCachedProgress } from "@/lib/progress-cache";
 
 export async function GET(
   request: NextRequest,
@@ -43,12 +43,12 @@ export async function GET(
     }
 
     // Get all lesson IDs
-    const lessonIds = course.sections.flatMap((section) =>
-      section.lessons.map((lesson) => lesson.id)
+    const lessonIds = course.sections.flatMap((section: { lessons: Array<{ id: string }> }) =>
+      section.lessons.map((lesson: { id: string }) => lesson.id)
     );
 
     // Get progress for all lessons
-    const progressEntries = lessonIds.length === 0
+    const progressEntries: Array<{ lessonId: string; completedAt: Date | null; completionPercent: number; lastPosition: number | null }> = lessonIds.length === 0
       ? []
       : await prisma.progress.findMany({
         where: {
@@ -59,14 +59,14 @@ export async function GET(
 
     // Calculate progress
     const totalLessons = lessonIds.length;
-    const completedLessons = progressEntries.filter((p) => p.completedAt != null).length;
+    const completedLessons = progressEntries.filter((entry) => entry.completedAt != null).length;
     const overallProgress = totalLessons > 0
       ? Math.round((completedLessons / totalLessons) * 100)
       : 0;
 
     // Format lessons progress
-    const lessons = lessonIds.map(lessonId => {
-      const progress = progressEntries.find(p => p.lessonId === lessonId);
+    const lessons = lessonIds.map((lessonId: string) => {
+      const progress = progressEntries.find((entry) => entry.lessonId === lessonId);
       return {
         lessonId,
         completedAt: progress?.completedAt?.toISOString() || null,

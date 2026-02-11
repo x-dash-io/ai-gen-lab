@@ -1,16 +1,25 @@
-"use server";
-
+import { generateCourseCertificate, hasCompletedCourse } from "@/lib/certificates";
 import { logger } from "@/lib/logger";
-import { hasCompletedCourse } from "@/lib/certificates";
-import { generateCourseCertificate } from "@/lib/certificates";
 
-// In-memory cache to track ongoing certificate generation attempts
-// In production, this should be replaced with Redis or similar
-const certificateGenerationCache = new Map<string, {
-  isGenerating: boolean;
-  timestamp: number;
-  promise?: Promise<any>;
-}>();
+type CertificateGenerationResult = {
+  success: boolean;
+  message: string;
+  certificateId?: string;
+  newlyGenerated?: boolean;
+  isCompleted?: boolean;
+  error?: string;
+};
+
+// In-memory cache to track ongoing certificate generation attempts.
+// In production, this should be replaced with Redis or similar.
+const certificateGenerationCache = new Map<
+  string,
+  {
+    isGenerating: boolean;
+    timestamp: number;
+    promise?: Promise<CertificateGenerationResult>;
+  }
+>();
 
 // Cache expiration time (5 minutes)
 const CACHE_EXPIRY = 5 * 60 * 1000;
@@ -19,36 +28,33 @@ const CACHE_EXPIRY = 5 * 60 * 1000;
  * Centralized certificate generation service with deduplication
  * Prevents multiple simultaneous calls for the same course completion
  */
-export async function checkAndGenerateCertificate(userId: string, courseId: string): Promise<{
-  success: boolean;
-  message: string;
-  certificateId?: string;
-  newlyGenerated?: boolean;
-  isCompleted?: boolean;
-  error?: string;
-}> {
+export async function checkAndGenerateCertificate(
+  userId: string,
+  courseId: string
+): Promise<CertificateGenerationResult> {
   const cacheKey = `${userId}-${courseId}`;
-  
-  // Check if certificate generation is already in progress
+
+  // Check if certificate generation is already in progress.
   const cached = certificateGenerationCache.get(cacheKey);
   if (cached?.isGenerating && Date.now() - cached.timestamp < CACHE_EXPIRY) {
-    logger.info(`Certificate generation already in progress: userId=${userId}, courseId=${courseId}`);
-    
-    // Wait for the existing generation to complete
+    logger.info(
+      `Certificate generation already in progress: userId=${userId}, courseId=${courseId}`
+    );
+
+    // Wait for the existing generation to complete.
     if (cached.promise) {
       try {
-        const result = await cached.promise;
-        return result;
-      } catch (error) {
-        // If the cached promise failed, allow retry
+        return await cached.promise;
+      } catch {
+        // If the cached promise failed, allow retry.
         certificateGenerationCache.delete(cacheKey);
       }
     }
   }
 
-  // Check if course is completed
+  // Check if course is completed.
   const isCompleted = await hasCompletedCourse(userId, courseId);
-  
+
   if (!isCompleted) {
     return {
       success: true,
@@ -57,23 +63,22 @@ export async function checkAndGenerateCertificate(userId: string, courseId: stri
     };
   }
 
-  // Mark generation as in progress
-  const generationPromise = generateCertificateWithDeduplication(userId, courseId, cacheKey);
-  
+  // Mark generation as in progress.
+  const generationPromise = generateCertificateWithDeduplication(userId, courseId);
+
   certificateGenerationCache.set(cacheKey, {
     isGenerating: true,
     timestamp: Date.now(),
-    promise: generationPromise
+    promise: generationPromise,
   });
 
   try {
-    const result = await generationPromise;
-    return result;
+    return await generationPromise;
   } finally {
-    // Clean up cache after completion
+    // Clean up cache after completion.
     setTimeout(() => {
       certificateGenerationCache.delete(cacheKey);
-    }, 1000); // Small delay to prevent immediate retries
+    }, 1000); // Small delay to prevent immediate retries.
   }
 }
 
@@ -81,20 +86,15 @@ export async function checkAndGenerateCertificate(userId: string, courseId: stri
  * Internal function to handle the actual certificate generation
  */
 async function generateCertificateWithDeduplication(
-  userId: string, 
-  courseId: string, 
-  cacheKey: string
-): Promise<{
-  success: boolean;
-  message: string;
-  certificateId?: string;
-  newlyGenerated?: boolean;
-  error?: string;
-}> {
+  userId: string,
+  courseId: string
+): Promise<CertificateGenerationResult> {
   try {
     const certificate = await generateCourseCertificate(courseId);
-    logger.info(`Certificate generated successfully: userId=${userId}, courseId=${courseId}, certificateId=${certificate.certificateId}`);
-    
+    logger.info(
+      `Certificate generated successfully: userId=${userId}, courseId=${courseId}, certificateId=${certificate.certificateId}`
+    );
+
     return {
       success: true,
       message: "Certificate generated successfully",
@@ -107,7 +107,7 @@ async function generateCertificateWithDeduplication(
       userId,
       courseId,
     });
-    
+
     return {
       success: false,
       message: "Course completed but certificate generation failed",
@@ -116,7 +116,7 @@ async function generateCertificateWithDeduplication(
   }
 }
 
-// These functions are not server actions - they're utility functions
+// These functions are not server actions - they're utility functions.
 export const cleanupCertificateCache = (): void => {
   const now = Date.now();
   const entries = Array.from(certificateGenerationCache.entries());
@@ -133,15 +133,17 @@ export const getCertificateCacheStatus = (): {
   entries: Array<{ key: string; isGenerating: boolean; age: number }>;
 } => {
   const now = Date.now();
-  const entries = Array.from(certificateGenerationCache.entries()).map(([key, value]) => ({
-    key,
-    isGenerating: value.isGenerating,
-    age: now - value.timestamp
-  }));
+  const entries = Array.from(certificateGenerationCache.entries()).map(
+    ([key, value]) => ({
+      key,
+      isGenerating: value.isGenerating,
+      age: now - value.timestamp,
+    })
+  );
 
   return {
     totalEntries: entries.length,
-    activeGenerations: entries.filter(e => e.isGenerating).length,
-    entries
+    activeGenerations: entries.filter((entry) => entry.isGenerating).length,
+    entries,
   };
 };

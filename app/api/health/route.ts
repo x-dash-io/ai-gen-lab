@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from "../error-handler";
 import { logger } from "@/lib/logger";
 
+type NextInternalError = {
+  digest?: string;
+  message?: string;
+};
+
 export const GET = withErrorHandler(async () => {
   // Force dynamic rendering to prevent static generation failures
   await headers();
@@ -12,12 +17,14 @@ export const GET = withErrorHandler(async () => {
     // Check database connection
     await prisma.$queryRaw`SELECT 1`;
     return NextResponse.json({ status: "healthy" });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const nextError = error as NextInternalError;
+
     // Re-throw Next.js internal errors so withErrorHandler can handle them (bail out)
     if (
-      error.digest?.startsWith("NEXT_PRERENDER_") ||
-      error.message?.includes("DYNAMIC_SERVER_USAGE") ||
-      error.message?.includes("NEXT_PRERENDER_INTERRUPTED")
+      nextError.digest?.startsWith("NEXT_PRERENDER_") ||
+      nextError.message?.includes("DYNAMIC_SERVER_USAGE") ||
+      nextError.message?.includes("NEXT_PRERENDER_INTERRUPTED")
     ) {
       throw error;
     }

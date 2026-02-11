@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { rateLimits } from "@/lib/rate-limit";
 
 /**
  * Rate limit middleware for API routes

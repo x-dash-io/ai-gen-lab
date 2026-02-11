@@ -22,7 +22,7 @@ const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_RE
  * In-memory fallback cache for development
  */
 class InMemoryCache {
-  private cache = new Map<string, CacheEntry<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
 
   set<T>(key: string, data: T, ttlSeconds: number = 60): void {
     const expiresAt = Date.now() + ttlSeconds * 1000;

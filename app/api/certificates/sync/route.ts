@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireCustomer } from "@/lib/access";
-import { hasCompletedCourse, generateCourseCertificateForUser, getUserCertificates } from "@/lib/certificates";
+import { hasCompletedCourse, generateCourseCertificateForUser } from "@/lib/certificates";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
@@ -30,7 +30,7 @@ type CourseWithSections = {
   }[];
 };
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const user = await requireCustomer();
 
@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    let allAccessibleCourses: CourseWithSections[] = purchases.map(p => p.Course);
+    const purchasesWithCourse = purchases as Array<{ Course: CourseWithSections }>;
+    let allAccessibleCourses: CourseWithSections[] = purchasesWithCourse.map((p) => p.Course);
 
     // If user has Professional or Founder subscription, add all published courses
     if (subscription && (subscription.plan.tier === "professional" || subscription.plan.tier === "founder")) {
@@ -84,8 +85,9 @@ export async function POST(request: NextRequest) {
       });
 
       // Merge without duplicates
-      const existingIds = new Set(allAccessibleCourses.map(c => c.id));
-      const additionalCourses = publishedCourses.filter(c => !existingIds.has(c.id));
+      const typedPublishedCourses = publishedCourses as CourseWithSections[];
+      const existingIds = new Set(allAccessibleCourses.map((course) => course.id));
+      const additionalCourses = typedPublishedCourses.filter((course) => !existingIds.has(course.id));
       allAccessibleCourses = [...allAccessibleCourses, ...additionalCourses];
     }
 

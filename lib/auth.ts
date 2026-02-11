@@ -1,10 +1,11 @@
 import NextAuth from "next-auth";
 import type { JWT } from "next-auth/jwt";
-import type { Session, User, Account } from "next-auth";
+import type { Session, User, Account, Profile } from "next-auth";
+import type { AdapterUser } from "next-auth/adapters";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import { prisma, withRetry } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { type Role } from "@/lib/rbac";
 
@@ -65,7 +66,7 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }: { user: User; account: Account | null; profile?: any }) {
+    async signIn({ user, account, profile }: { user: User | AdapterUser; account: Account | null; profile?: Profile }) {
       // For OAuth providers, handle account linking and role assignment
       if (account && account.provider !== "credentials" && user.email) {
         try {
@@ -77,7 +78,7 @@ export const authOptions = {
           if (existingUser) {
             // Check if this OAuth account is already linked
             const existingAccount = existingUser.Account?.find(
-              (acc: any) => acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
+              (acc) => acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
             );
 
             if (!existingAccount) {
@@ -107,10 +108,18 @@ export const authOptions = {
             }
 
             // Update user info from OAuth profile if missing
-            if (!existingUser.image && profile?.picture) {
+            const profilePicture =
+              profile &&
+              typeof profile === "object" &&
+              "picture" in profile &&
+              typeof profile.picture === "string"
+                ? profile.picture
+                : null;
+
+            if (!existingUser.image && profilePicture) {
               await prisma.user.update({
                 where: { id: existingUser.id },
-                data: { image: profile.picture },
+                data: { image: profilePicture },
               });
             }
           }

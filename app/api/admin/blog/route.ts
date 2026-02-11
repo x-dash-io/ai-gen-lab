@@ -4,7 +4,7 @@ import { createPost, getAllPosts } from "@/lib/admin/blog";
 import { withErrorHandler } from "@/app/api/error-handler";
 import { AppError } from "@/lib/errors";
 
-export const GET = withErrorHandler(async (request: NextRequest) => {
+export const GET = withErrorHandler(async () => {
   await requireRole("admin");
   const posts = await getAllPosts();
   return NextResponse.json({ posts });

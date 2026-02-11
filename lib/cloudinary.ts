@@ -1,5 +1,4 @@
-import { v2 as cloudinary } from "cloudinary";
-import crypto from "crypto";
+import { v2 as cloudinary, type UploadApiOptions } from "cloudinary";
 
 // Cache for content existence checks to avoid repeated API calls
 const existenceCache = new Map<string, { exists: boolean; checkedAt: number }>();
@@ -115,7 +114,7 @@ export function getSignedCloudinaryUrl(
     // When viewing inline (not downloading), we should enforce a browser-compatible format
     // like mp4 for video or mp3 for audio, regardless of the original file extension.
     // Cloudinary handles the transcoding on the fly.
-    let format = undefined;
+    let format: string | undefined = undefined;
     
     // For video/audio resources, ensure we have an extension for browser compatibility.
     // We enforce mp4 (video) or mp3 (audio) for inline viewing to ensure that
@@ -168,7 +167,7 @@ export async function uploadToCloudinary(
   } = options;
 
   return new Promise((resolve, reject) => {
-    const uploadOptions: any = {
+    const uploadOptions: UploadApiOptions = {
       folder,
       resource_type: resourceType,
       // Use type: "upload" (default) instead of "authenticated"
@@ -260,9 +259,10 @@ export async function checkCloudinaryResourceExists(
     const exists = !!result && result.public_id === publicId;
     existenceCache.set(cacheKey, { exists, checkedAt: Date.now() });
     return exists;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const cloudError = error as { http_code?: number; error?: { message?: string } };
     // If error indicates resource not found, cache as not exists
-    if (error?.http_code === 404 || error?.error?.message?.includes('not found')) {
+    if (cloudError.http_code === 404 || cloudError.error?.message?.includes('not found')) {
       existenceCache.set(cacheKey, { exists: false, checkedAt: Date.now() });
       return false;
     }

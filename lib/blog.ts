@@ -3,22 +3,19 @@ import { prisma, withRetry } from "@/lib/prisma";
 export async function getPublishedPosts(options: { tag?: string; search?: string } = {}) {
   const { tag, search } = options;
 
-  // Construct where clause dynamically to avoid empty objects in AND array
-  const where: any = {
+  const where = {
     status: "published",
+    ...(tag ? { tags: { some: { slug: tag } } } : {}),
+    ...(search
+      ? {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { content: { contains: search, mode: "insensitive" } },
+            { excerpt: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
   };
-
-  if (tag) {
-    where.tags = { some: { slug: tag } };
-  }
-
-  if (search) {
-    where.OR = [
-      { title: { contains: search, mode: "insensitive" } },
-      { content: { contains: search, mode: "insensitive" } },
-      { excerpt: { contains: search, mode: "insensitive" } },
-    ];
-  }
 
   return withRetry(async () => {
     return prisma.blogPost.findMany({

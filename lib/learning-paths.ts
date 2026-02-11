@@ -251,7 +251,7 @@ export async function createLearningPathPurchasesCore(userId: string, pathId: st
     existingPurchases.map((p) => [p.courseId, p])
   );
 
-  const toCreate: any[] = [];
+  const toCreate: Array<{ id: string; userId: string; courseId: string; amountCents: number; currency: string; status: string; provider: string; }> = [];
   const toUpdateIds: string[] = [];
 
   for (const pc of coursesToPurchase) {

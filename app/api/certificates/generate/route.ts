@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/access";
-import { generateCourseCertificate, generatePathCertificate } from "@/lib/certificates";
 
 export async function POST(request: NextRequest) {
   try {

@@ -71,7 +71,6 @@ export async function generateCertificatePDF(
   });
 
   // Draw corner decorations
-  const cornerSize = 20;
   const corners = [
     { x: borderMargin + 5, y: height - borderMargin - 5 },
     { x: width - borderMargin - 5, y: height - borderMargin - 5 },

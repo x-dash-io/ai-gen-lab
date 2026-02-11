@@ -3,7 +3,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma, withRetry } from "@/lib/prisma";
 import { hasRole, type Role } from "@/lib/rbac";
 import { getUserSubscription } from "@/lib/subscriptions";
-import type { Session } from "next-auth";
 
 export async function requireUser() {
   const session = await getServerSession(authOptions);

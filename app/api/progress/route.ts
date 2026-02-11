@@ -3,7 +3,6 @@ import { requireUser } from "@/lib/access";
 import { updateLessonProgress, getLessonProgress } from "@/lib/progress";
 import { trackLessonComplete } from "@/lib/analytics";
 import { withErrorHandler } from "../error-handler";
-import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { checkAndGenerateCertificate } from "@/lib/certificate-service";
 import { progressUpdateSchema, progressQuerySchema, validateRequestBody, validateQueryParams } from "@/lib/validation";

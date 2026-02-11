@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getAuthorizedLessonContent } from "@/lib/lessons";
-import { checkCloudinaryResourceExists } from "@/lib/cloudinary";
 
 /**
  * Proxy endpoint for content delivery with per-request validation

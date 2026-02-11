@@ -56,7 +56,7 @@ export async function getRevenueOverTime(days: number = 30): Promise<RevenueData
   // Group by date
   const dailyData = new Map<string, { revenue: number; count: number }>();
 
-  purchases.forEach((purchase) => {
+  purchases.forEach((purchase: (typeof purchases)[number]) => {
     const date = purchase.createdAt.toISOString().split("T")[0];
     const existing = dailyData.get(date) || { revenue: 0, count: 0 };
     dailyData.set(date, {
@@ -97,7 +97,7 @@ export async function getCategorySales(): Promise<CategorySalesData[]> {
     GROUP BY COALESCE(c.category, 'Uncategorized')
   `;
 
-  return result.map((row) => ({
+  return result.map((row: (typeof result)[number]) => ({
     category: row.category,
     sales: Number(row.sales),
     revenue: Number(row.revenue) / 100, // Convert cents to dollars
@@ -136,7 +136,7 @@ export async function getUserGrowth(days: number = 30): Promise<UserGrowthDataPo
 
   // Group by date
   const dailyData = new Map<string, number>();
-  users.forEach((user) => {
+  users.forEach((user: (typeof users)[number]) => {
     const date = user.createdAt.toISOString().split("T")[0];
     dailyData.set(date, (dailyData.get(date) || 0) + 1);
   });
@@ -184,7 +184,7 @@ export async function getEnrollmentTrends(days: number = 30): Promise<Enrollment
 
   // Group by date
   const dailyData = new Map<string, number>();
-  enrollments.forEach((enrollment) => {
+  enrollments.forEach((enrollment: (typeof enrollments)[number]) => {
     const date = enrollment.grantedAt.toISOString().split("T")[0];
     dailyData.set(date, (dailyData.get(date) || 0) + 1);
   });
@@ -227,7 +227,7 @@ export async function getTopCoursesByRevenue(limit: number = 10): Promise<TopCou
     take: limit,
   });
 
-  const courseIds = groupedPurchases.map((p) => p.courseId);
+  const courseIds = groupedPurchases.map((p: (typeof groupedPurchases)[number]) => p.courseId);
 
   const courses = await prisma.course.findMany({
     where: {
@@ -241,9 +241,9 @@ export async function getTopCoursesByRevenue(limit: number = 10): Promise<TopCou
     },
   });
 
-  const courseMap = new Map(courses.map((c) => [c.id, c.title]));
+  const courseMap = new Map(courses.map((c: (typeof courses)[number]) => [c.id, c.title]));
 
-  return groupedPurchases.map((group) => ({
+  return groupedPurchases.map((group: (typeof groupedPurchases)[number]) => ({
     courseId: group.courseId,
     title: courseMap.get(group.courseId) || "Unknown Course",
     sales: group._count._all,

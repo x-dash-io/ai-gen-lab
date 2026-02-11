@@ -1,9 +1,10 @@
+import type { Prisma } from "@prisma/client";
 import { prisma, withRetry } from "@/lib/prisma";
 
 export async function getPublishedPosts(options: { tag?: string; search?: string } = {}) {
   const { tag, search } = options;
 
-  const where = {
+  const where: Prisma.BlogPostWhereInput = {
     status: "published",
     ...(tag ? { tags: { some: { slug: tag } } } : {}),
     ...(search

@@ -48,7 +48,7 @@ export async function getCourseReviewStats(courseId: string) {
 
   const ratingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
-  distribution.forEach((group) => {
+  distribution.forEach((group: (typeof distribution)[number]) => {
     const rating = group.rating as keyof typeof ratingDistribution;
     if (rating >= 1 && rating <= 5) {
       ratingDistribution[rating] = group._count.id;
@@ -115,7 +115,9 @@ export async function createReview(
     throw new Error("Course not found");
   }
 
-  const lessonIds = course.sections.flatMap((s) => s.lessons.map((l) => l.id));
+  const lessonIds = course.sections.flatMap((s: (typeof course.sections)[number]) =>
+    s.lessons.map((l: (typeof s.lessons)[number]) => l.id)
+  );
   const totalLessons = lessonIds.length;
 
   if (totalLessons > 0) {

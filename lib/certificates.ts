@@ -39,7 +39,9 @@ export async function hasCompletedCourse(userId: string, courseId: string): Prom
     return false;
   }
 
-  const lessonIds = course.sections.flatMap((s) => s.lessons.map((l) => l.id));
+  const lessonIds = course.sections.flatMap((s: (typeof course.sections)[number]) =>
+    s.lessons.map((l: (typeof s.lessons)[number]) => l.id)
+  );
   if (lessonIds.length === 0) {
     logger.warn(`No lessons found in course: courseId=${courseId}`);
     return false;
@@ -54,7 +56,7 @@ export async function hasCompletedCourse(userId: string, courseId: string): Prom
   });
 
   // Check if all lessons are completed
-  const completedLessons = progressRecords.filter((p) => p.completedAt != null).length;
+  const completedLessons = progressRecords.filter((p: (typeof progressRecords)[number]) => p.completedAt != null).length;
   const isCompleted = completedLessons === lessonIds.length;
 
   logger.info(`Course completion check: userId=${userId}, courseId=${courseId}, totalLessons=${lessonIds.length}, completedLessons=${completedLessons}, isCompleted=${isCompleted}`);
@@ -157,8 +159,11 @@ export async function generateCourseCertificateForUser(userId: string, courseId:
 
   // Use transaction to prevent race condition (check-then-create)
   const certificate = await prisma.$transaction(async (tx) => {
+    // Prisma 7 + adapter-pg can infer an over-restricted ITX type in some setups.
+    const db = tx as unknown as typeof prisma;
+
     // Check if certificate already exists within transaction
-    const existing = await tx.certificate.findFirst({
+    const existing = await db.certificate.findFirst({
       where: {
         userId: userId,
         courseId,
@@ -186,7 +191,7 @@ export async function generateCourseCertificateForUser(userId: string, courseId:
 
     // Generate certificate within same transaction
     const certificateId = generateCertificateId();
-    const newCert = await tx.certificate.create({
+    const newCert = await db.certificate.create({
       data: {
         id: `cert_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         userId: userId,
@@ -211,7 +216,7 @@ export async function generateCourseCertificateForUser(userId: string, courseId:
     });
 
     // Log certificate issuance within transaction
-    await tx.activityLog.create({
+    await db.activityLog.create({
       data: {
         id: `activity_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         userId: userId,
@@ -272,7 +277,7 @@ export async function generatePathCertificate(pathId: string) {
     where: {
       userId: user.id,
       status: "paid",
-      courseId: { in: pathCourses.map(pc => pc.courseId) }
+      courseId: { in: pathCourses.map((pc: (typeof pathCourses)[number]) => pc.courseId) }
     }
   });
 
@@ -295,8 +300,11 @@ export async function generatePathCertificate(pathId: string) {
 
   // Use transaction to prevent race condition (check-then-create)
   const certificate = await prisma.$transaction(async (tx) => {
+    // Prisma 7 + adapter-pg can infer an over-restricted ITX type in some setups.
+    const db = tx as unknown as typeof prisma;
+
     // Check if certificate already exists within transaction
-    const existing = await tx.certificate.findFirst({
+    const existing = await db.certificate.findFirst({
       where: {
         userId: user.id,
         pathId,
@@ -323,7 +331,7 @@ export async function generatePathCertificate(pathId: string) {
     }
 
     // Get path details for metadata
-    const path = await tx.learningPath.findUnique({
+    const path = await db.learningPath.findUnique({
       where: { id: pathId },
       include: {
         courses: {
@@ -342,7 +350,7 @@ export async function generatePathCertificate(pathId: string) {
 
     // Generate certificate within same transaction
     const certificateId = generateCertificateId();
-    const newCert = await tx.certificate.create({
+    const newCert = await db.certificate.create({
       data: {
         id: `cert_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         userId: user.id,
@@ -351,7 +359,7 @@ export async function generatePathCertificate(pathId: string) {
         certificateId,
         metadata: path ? {
           courseCount: path.courses.length,
-          courses: path.courses.map((pc) => ({
+          courses: path.courses.map((pc: (typeof path.courses)[number]) => ({
             courseId: pc.Course.id,
             title: pc.Course.title,
           })),
@@ -374,7 +382,7 @@ export async function generatePathCertificate(pathId: string) {
     });
 
     // Log certificate issuance within transaction
-    await tx.activityLog.create({
+    await db.activityLog.create({
       data: {
         id: `activity_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         userId: user.id,
@@ -583,7 +591,7 @@ export async function generateLearningPathCertificate(userId: string, pathId: st
   }
 
   // Check if all courses are completed
-  const courseIds = path.courses.map(pc => pc.Course.id);
+  const courseIds = path.courses.map((pc: (typeof path.courses)[number]) => pc.Course.id);
   if (courseIds.length === 0) {
     throw new Error("Learning path has no courses");
   }
@@ -683,7 +691,7 @@ export async function hasCompletedLearningPathForCertificate(userId: string, pat
     return false;
   }
 
-  const courseIds = path.courses.map(pc => pc.courseId);
+  const courseIds = path.courses.map((pc: (typeof path.courses)[number]) => pc.courseId);
 
   // Check if all courses are completed
   for (const courseId of courseIds) {

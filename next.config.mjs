@@ -13,6 +13,8 @@ const nextConfig = {
   },
   transpilePackages: ["framer-motion"],
   reactStrictMode: true,
+  // Next.js 16 TypeScript worker currently overflows stack in this repo.
+  // We enforce `tsc --noEmit` via npm scripts instead.
   typescript: {
     ignoreBuildErrors: true,
   },

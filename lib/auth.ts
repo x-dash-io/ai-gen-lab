@@ -78,7 +78,8 @@ export const authOptions = {
           if (existingUser) {
             // Check if this OAuth account is already linked
             const existingAccount = existingUser.Account?.find(
-              (acc) => acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
+              (acc: NonNullable<typeof existingUser.Account>[number]) =>
+                acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
             );
 
             if (!existingAccount) {

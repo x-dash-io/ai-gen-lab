@@ -113,8 +113,8 @@ export async function getCourseProgress(courseId: string) {
     throw new Error("NOT_FOUND");
   }
 
-  const lessonIds = course.sections.flatMap((s) =>
-    s.lessons.map((l) => l.id)
+  const lessonIds = course.sections.flatMap((s: (typeof course.sections)[number]) =>
+    s.lessons.map((l: (typeof s.lessons)[number]) => l.id)
   );
 
   const progressRecords = await withRetry(async () => {
@@ -128,7 +128,7 @@ export async function getCourseProgress(courseId: string) {
 
   const totalLessons = lessonIds.length;
   const completedLessons = progressRecords.filter(
-    (p) => p.completedAt != null
+    (p: (typeof progressRecords)[number]) => p.completedAt != null
   ).length;
   const completionPercent =
     totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;

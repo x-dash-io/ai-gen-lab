@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/access";
 import { getUserSubscription } from "@/lib/subscriptions";
@@ -130,7 +131,9 @@ export async function calculateLearningPathPrice(userId: string, pathId: string)
     };
   }
 
-  const courseIds = path.courses.map((pc) => pc.Course.id);
+  type PathCourse = (typeof path.courses)[number];
+
+  const courseIds = path.courses.map((pc: PathCourse) => pc.Course.id);
   const existingPurchases = await prisma.purchase.findMany({
     where: {
       userId,
@@ -139,14 +142,21 @@ export async function calculateLearningPathPrice(userId: string, pathId: string)
     },
   });
 
-  const existingCourseIds = new Set(existingPurchases.map((p) => p.courseId));
+  const existingCourseIds = new Set(
+    existingPurchases.map((p: (typeof existingPurchases)[number]) => p.courseId)
+  );
 
-  const fullPriceCents = path.courses.reduce((sum, pc) => sum + pc.Course.priceCents, 0);
+  const fullPriceCents = path.courses.reduce(
+    (sum: number, pc: PathCourse) => sum + pc.Course.priceCents,
+    0
+  );
   const alreadyPurchasedCents = path.courses
-    .filter((pc) => existingCourseIds.has(pc.Course.id))
-    .reduce((sum, pc) => sum + pc.Course.priceCents, 0);
+    .filter((pc: PathCourse) => existingCourseIds.has(pc.Course.id))
+    .reduce((sum: number, pc: PathCourse) => sum + pc.Course.priceCents, 0);
   const adjustedPriceCents = fullPriceCents - alreadyPurchasedCents;
-  const coursesToPurchase = path.courses.filter((pc) => !existingCourseIds.has(pc.Course.id)).length;
+  const coursesToPurchase = path.courses.filter(
+    (pc: PathCourse) => !existingCourseIds.has(pc.Course.id)
+  ).length;
 
   return {
     fullPriceCents,
@@ -184,7 +194,9 @@ export async function hasEnrolledInLearningPath(userId: string, pathId: string):
     return false;
   }
 
-  const courseIds = path.courses.map((pc) => pc.Course.id);
+  type PathCourse = (typeof path.courses)[number];
+
+  const courseIds = path.courses.map((pc: PathCourse) => pc.Course.id);
   const purchases = await prisma.purchase.findMany({
     where: {
       userId,
@@ -224,7 +236,9 @@ export async function createLearningPathPurchasesCore(userId: string, pathId: st
   }
 
   // Check existing purchases
-  const courseIds = path.courses.map((pc) => pc.Course.id);
+  type PathCourse = (typeof path.courses)[number];
+
+  const courseIds = path.courses.map((pc: PathCourse) => pc.Course.id);
   const existingPurchases = await prisma.purchase.findMany({
     where: {
       userId,
@@ -234,12 +248,12 @@ export async function createLearningPathPurchasesCore(userId: string, pathId: st
 
   const paidCourseIds = new Set(
     existingPurchases
-      .filter((p) => p.status === "paid")
-      .map((p) => p.courseId)
+      .filter((p: (typeof existingPurchases)[number]) => p.status === "paid")
+      .map((p: (typeof existingPurchases)[number]) => p.courseId)
   );
 
   const coursesToPurchase = path.courses.filter(
-    (pc) => !paidCourseIds.has(pc.Course.id)
+    (pc: PathCourse) => !paidCourseIds.has(pc.Course.id)
   );
 
   if (coursesToPurchase.length === 0) {
@@ -248,10 +262,10 @@ export async function createLearningPathPurchasesCore(userId: string, pathId: st
 
   // Split into create and update
   const existingPurchaseMap = new Map(
-    existingPurchases.map((p) => [p.courseId, p])
+    existingPurchases.map((p: (typeof existingPurchases)[number]) => [p.courseId, p])
   );
 
-  const toCreate: Array<{ id: string; userId: string; courseId: string; amountCents: number; currency: string; status: string; provider: string; }> = [];
+  const toCreate: Prisma.PurchaseCreateManyInput[] = [];
   const toUpdateIds: string[] = [];
 
   for (const pc of coursesToPurchase) {
@@ -290,7 +304,7 @@ export async function createLearningPathPurchasesCore(userId: string, pathId: st
   }
 
   // Fetch final results
-  const allRelevantCourseIds = coursesToPurchase.map((pc) => pc.Course.id);
+  const allRelevantCourseIds = coursesToPurchase.map((pc: PathCourse) => pc.Course.id);
   const purchases = await prisma.purchase.findMany({
     where: {
       userId,
@@ -301,7 +315,7 @@ export async function createLearningPathPurchasesCore(userId: string, pathId: st
   return {
     purchases,
     totalAmountCents: coursesToPurchase.reduce(
-      (sum, pc) => sum + pc.Course.priceCents,
+      (sum: number, pc: PathCourse) => sum + pc.Course.priceCents,
       0
     ),
   };
@@ -374,7 +388,9 @@ export async function getLearningPathProgress(userId: string, pathId: string): P
 
     if (!course) return false;
 
-    const lessonIds = course.sections.flatMap((s) => s.lessons.map((l) => l.id));
+    const lessonIds = course.sections.flatMap((s: (typeof course.sections)[number]) =>
+      s.lessons.map((l: (typeof s.lessons)[number]) => l.id)
+    );
     if (lessonIds.length === 0) return false;
 
     const progressRecords = await prisma.progress.findMany({
@@ -388,7 +404,7 @@ export async function getLearningPathProgress(userId: string, pathId: string): P
   }
 
   const coursesProgress = await Promise.all(
-    path.courses.map(async (pc) => {
+    path.courses.map(async (pc: (typeof path.courses)[number]) => {
       const courseId = pc.Course.id;
       // Check if course is completed
       const isCompleted = await userCompletedCourse(userId, courseId);

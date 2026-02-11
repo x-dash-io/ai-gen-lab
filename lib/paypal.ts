@@ -169,8 +169,11 @@ export async function revisePayPalSubscription({
     throw new Error(errorMessage);
   }
 
-  const data = await response.json();
-  const approvalUrl = data.links?.find((link) => link.rel === "approve")?.href;
+  const data = (await response.json()) as {
+    id: string;
+    links?: Array<{ rel?: string; href?: string }>;
+  };
+  const approvalUrl = data.links?.find((link: NonNullable<typeof data.links>[number]) => link.rel === "approve")?.href;
 
   return { subscriptionId: data.id, approvalUrl };
 }
@@ -211,8 +214,11 @@ export async function createPayPalSubscription({
     throw new Error("Failed to create PayPal subscription.");
   }
 
-  const data = await response.json();
-  const approvalUrl = data.links.find((link) => link.rel === "approve")?.href;
+  const data = (await response.json()) as {
+    id: string;
+    links: Array<{ rel?: string; href?: string }>;
+  };
+  const approvalUrl = data.links.find((link: (typeof data.links)[number]) => link.rel === "approve")?.href;
 
   if (!approvalUrl) {
     throw new Error("Missing PayPal approval URL for subscription.");

@@ -58,7 +58,7 @@ export async function getHomePageData() {
       supportSlaHours: FALLBACK_STATS.supportSlaHours,
     };
 
-    const dynamicPlans: HomePagePlan[] = plans.map((plan) => ({
+    const dynamicPlans: HomePagePlan[] = plans.map((plan: (typeof plans)[number]) => ({
       id: plan.id,
       name: plan.name,
       monthlyPriceCents: plan.priceMonthlyCents,

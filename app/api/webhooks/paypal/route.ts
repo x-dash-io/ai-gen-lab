@@ -199,8 +199,11 @@ export async function POST(request: Request) {
           }
 
           await prisma.$transaction(async (tx) => {
+            // Prisma 7 + adapter-pg can infer an over-restricted ITX type in some setups.
+            // Cast to the app client shape so model delegates remain type-safe in this block.
+            const db = tx as unknown as typeof prisma;
             for (const other of otherSubs) {
-              await tx.subscription.update({
+              await db.subscription.update({
                 where: { id: other.id },
                 data: { status: other.status === "pending" ? "expired" : "expired" },
               });
@@ -327,7 +330,10 @@ export async function POST(request: Request) {
 
     for (const purchase of purchases) {
       await prisma.$transaction(async (tx) => {
-        const statusUpdate = await tx.purchase.updateMany({
+        // See note above on ITX typing with adapter-pg.
+        const db = tx as unknown as typeof prisma;
+
+        const statusUpdate = await db.purchase.updateMany({
           where: {
             id: purchase.id,
             status: { not: "paid" },
@@ -340,7 +346,7 @@ export async function POST(request: Request) {
         }
 
         if (purchase.Course && purchase.Course.inventory !== null) {
-          const inventoryUpdate = await tx.course.updateMany({
+          const inventoryUpdate = await db.course.updateMany({
             where: {
               id: purchase.courseId,
               inventory: {
@@ -359,7 +365,7 @@ export async function POST(request: Request) {
           }
         }
 
-        await tx.enrollment.upsert({
+        await db.enrollment.upsert({
           where: {
             userId_courseId: {
               userId: purchase.userId,
@@ -375,7 +381,7 @@ export async function POST(request: Request) {
           },
         });
 
-        await tx.payment.create({
+        await db.payment.create({
           data: {
             id: `payment_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
             userId: purchase.userId,
@@ -389,7 +395,7 @@ export async function POST(request: Request) {
         });
 
         if (purchase.couponId) {
-          await tx.$executeRaw`
+          await db.$executeRaw`
             UPDATE "Coupon"
             SET "usedCount" = "usedCount" + 1
             WHERE "id" = ${purchase.couponId}
@@ -397,7 +403,7 @@ export async function POST(request: Request) {
           `;
         }
 
-        await tx.activityLog.create({
+        await db.activityLog.create({
           data: {
             id: `activity_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
             userId: purchase.userId,

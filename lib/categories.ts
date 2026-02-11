@@ -56,7 +56,7 @@ export async function getActiveCategoriesWithCount(): Promise<
       },
     });
 
-    return categories.map((cat) => ({
+    return categories.map((cat: (typeof categories)[number]) => ({
       id: cat.id,
       name: cat.name,
       slug: cat.slug,

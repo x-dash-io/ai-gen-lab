@@ -70,7 +70,7 @@ export async function getAdminStats() {
   // Count paid subscribers and calculate MRR
   const activeSubscriberIds = new Set<string>();
 
-  activeSubscriptions.forEach((sub) => {
+  activeSubscriptions.forEach((sub: (typeof activeSubscriptions)[number]) => {
     // Skip admins from MRR and subscription counts
     if (sub.user?.role === "admin") return;
 

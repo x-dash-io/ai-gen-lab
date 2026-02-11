@@ -128,9 +128,11 @@ npm install
 
 2. Configure environment variables by creating a `.env.local` file:
 ```bash
-# Database Connection
-DATABASE_URL="postgresql://username:password@host:5432/database"
-DIRECT_URL="postgresql://username:password@host:5432/database"
+# Database Connection (Supabase recommended)
+# DATABASE_URL: pooled connection for app/runtime
+DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+# DIRECT_URL: direct connection for Prisma migrations
+DIRECT_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
 
 # Authentication
 NEXTAUTH_URL="http://localhost:3000"

@@ -1,4 +1,5 @@
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import type { HomePageStats } from "@/lib/homepage";
 
 const SIGNALS = [
   {
@@ -15,7 +16,7 @@ const SIGNALS = [
   },
 ];
 
-export function Hero() {
+export function Hero({ stats }: { stats: HomePageStats }) {
   return (
     <section className="hero">
       <div className="container-shell hero-grid">
@@ -36,15 +37,15 @@ export function Hero() {
 
           <div className="hero-stats">
             <div className="hero-stat">
-              <b>120+</b>
+              <b>{stats.lessons}+</b>
               <p>Curated lessons</p>
             </div>
             <div className="hero-stat">
-              <b>4.9/5</b>
+              <b>{stats.averageRating}</b>
               <p>Member rating</p>
             </div>
             <div className="hero-stat">
-              <b>24h</b>
+              <b>{stats.supportSlaHours}h</b>
               <p>Average support SLA</p>
             </div>
           </div>

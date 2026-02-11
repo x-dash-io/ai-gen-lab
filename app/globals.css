@@ -1,4 +1,6 @@
 :root {
+  --font-body: "Inter";
+  --font-heading: "Inter";
   --bg: #f6f5f0;
   --surface: #ffffff;
   --ink: #11161d;
